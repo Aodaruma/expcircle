@@ -1,0 +1,82 @@
+--[[
+This script is version 1.00. If it is outdated, please replace it with a newer script.
+We are not responsible for any damage caused by the use of this script.
+
+developed by Aodaruma (@Aodaruma_)
+]]
+--track0:cx,-2000,2000,0,0.01
+--track1:cy,-2000,2000,0,0.01
+--track2:rotation,-720,720,0,0.01
+--track3:radius(pow),0,15,2,0.01
+--dialog:divnum,local div=200;color/col,local color=0xffffff;error(pow),local err=5;powbase,local powbase=10;
+
+div = div or 200
+color = color or 0xffffff
+err = err or 5
+powbase = powbase or 10
+
+local s, c, pi = math.sin, math.cos, math.pi
+local min, max = math.min, math.max
+local sq2 = math.sqrt(2)
+local cx, cy, rot, exrad = obj.track0, obj.track1, obj.track2, obj.track3
+rot = rot / 180 * pi
+local isDrawn = false
+
+local function rotmat(x, y, t)
+    return unpack(
+        {
+            c(t) * x - s(t) * y,
+            s(t) * x + c(t) * y
+        }
+    )
+end
+local function dp(x0, y0, x1, y1, x2, y2, x3, y3)
+    x0, y0 = rotmat(x0, y0, rot)
+    x1, y1 = rotmat(x1, y1, rot)
+    x2, y2 = rotmat(x2, y2, rot)
+    x3, y3 = rotmat(x3, y3, rot)
+    x0, x1, x2, x3 = x0 + cx, x1 + cx, x2 + cx, x3 + cx
+    y0, y1, y2, y3 = y0 + cy, y1 + cy, y2 + cy, y3 + cy
+    obj.drawpoly(x0, y0, 0, x1, y1, 0, x2, y2, 0, x3, y3, 0)
+    isDrawn = true
+end
+local function tri(x0, y0, x1, y1, x2, y2)
+    dp(x0, y0, x1, y1, x2, y2, x2, y2)
+end
+local function rect(x0, y0, x1, y1)
+    dp(x0, y0, x1, y0, x1, y1, x0, y1)
+end
+
+local r = powbase ^ exrad
+local dt = 2 * pi / div
+local sw, sh, sm = obj.screen_w, obj.screen_h, max(obj.screen_w, obj.screen_h)
+obj.setoption("dst", "tmp", sm, sm)
+obj.load("figure", "ŽlŠpŒ`", color, 1)
+obj.setoption("blend", "alpha_add")
+if r > powbase ^ (err) then
+    rect(-sm * sq2 / 2, 0, sm * sq2 / 2, sm * sq2 / 2)
+else
+    for i = 0, div do
+        local t0, t1 = dt * i, dt * (i + 1)
+        local x0, y0, x1, y1 = r * c(t0), r * s(t0), r * c(t1), r * s(t1)
+        y0, y1 = y0 + r, y1 + r
+
+        -- culling
+        if (-sw * sq2 / 2 < min(x0, x1) and max(x0, x1) < sw * sq2 / 2) or (-sw < cx and cx < sw) then
+            if (-sh * sq2 / 2 < min(y0, y1) and max(y0, y1) < sh * sq2 / 2) or (-sh * 2 < cy and cy < sh * 2) then
+                if r > sm then -- make trapezoid
+                    local ratio = sm / 2 / r
+                    local x2, y2 = x0 * ratio, (y0 - r) * ratio + r
+                    local x3, y3 = x1 * ratio, (y1 - r) * ratio + r
+                    dp(x0, y0, x1, y1, x3, y3, x2, y2)
+                else -- make triangle
+                    tri(x0, y0, x1, y1, 0, r)
+                end
+            end
+        end
+        if not isDrawn then
+            rect(-sm * sq2 / 2, 0, sm * sq2 / 2, sm * sq2 / 2)
+        end
+    end
+end
+obj.load("tempbuffer")
